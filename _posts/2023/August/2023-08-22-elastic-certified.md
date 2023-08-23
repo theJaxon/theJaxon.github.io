@@ -85,3 +85,63 @@ PUT dynamic-template-demo
   }
 }
 ```
+
+## Define an [index Lifecycle](https://www.elastic.co/guide/en/elasticsearch/reference/current/ilm-index-lifecycle.html#ilm-index-lifecycle) management policy for a timeseries index
+- There are **5** index lifecycle phases
+1. `Hot` The index is actively being updated and queried.
+2. `Warm` The index is no longer being updated but is still being queried.
+3. `Cold` The index is no longer being updated and is queried infrequently. The information still needs to be searchable, but it’s okay if those queries are slower.
+4. `Frozen` The index is no longer being updated and is queried rarely. The information still needs to be searchable, but it’s okay if those queries are extremely slow.
+5. `Delete` The index is no longer needed and can safely be removed.
+
+```json
+PUT _ilm/policy/ilm-policy-sample
+{
+  "policy": {
+    "phases": {
+      "hot": {
+        "min_age": "0ms",
+        "actions": {
+          "set_priority": {
+            "priority": 100
+          },
+          "rollover": {
+            "max_primary_shard_size": "50gb",
+            "max_age": "30d"
+          }
+        }
+      },
+      "warm": {
+        "min_age": "60d",
+        "actions": {
+          "set_priority": {
+            "priority": 50
+          }
+        }
+      },
+      "cold": {
+        "min_age": "90d",
+        "actions": {
+          "set_priority": {
+            "priority": 0
+          }
+        }
+      }
+    }
+  }
+}
+
+PUT _index_template/data-stream-template
+{
+  "index_patterns": ["timeseries"],
+  # If data_stream isn't specified it will become a regular index template not a data_stream one
+  "data_stream": {},
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.lifecycle.name": "ilm-policy-sample"
+    }
+  }
+}
+```
